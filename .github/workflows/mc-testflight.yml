@@ -12,6 +12,10 @@ on:
         description: Upload to TestFlight (off = archive and export only)
         type: boolean
         default: true
+      unsigned:
+        description: Compile check only, no signing (works without the ASC secrets)
+        type: boolean
+        default: false
 
 concurrency:
   group: testflight-${{ github.ref }}
@@ -43,7 +47,33 @@ jobs:
           brew install xcodegen
           xcodegen
 
+      - name: Compile check (unsigned)
+        if: inputs.unsigned
+        run: |
+          xcodebuild archive -project ElementX.xcodeproj -scheme ElementX -configuration Release \
+            -destination generic/platform=iOS -archivePath build/MCChat.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" > archive.log 2>&1 \
+            || { grep -E "error:" archive.log | sort -u | head -80; tail -40 archive.log; exit 1; }
+          tail -3 archive.log
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' -c 'Print :CFBundleDisplayName' \
+            "build/MCChat.xcarchive/Products/Applications/$(ls build/MCChat.xcarchive/Products/Applications)/Info.plist"
+
+      - name: Check signing secrets
+        if: ${{ !inputs.unsigned }}
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          missing=""
+          [ -n "$ASC_KEY_ID" ] || missing="$missing ASC_KEY_ID"
+          [ -n "$ASC_ISSUER_ID" ] || missing="$missing ASC_ISSUER_ID"
+          [ -n "$ASC_KEY_P8" ] || missing="$missing ASC_KEY_P8"
+          if [ -n "$missing" ]; then echo "::error::Missing signing secrets:$missing"; exit 1; fi
+          echo "All three signing secrets present."
+
       - name: Archive
+        if: ${{ !inputs.unsigned }}
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -63,6 +93,7 @@ jobs:
             "build/MCChat.xcarchive/Products/Applications/$(ls build/MCChat.xcarchive/Products/Applications)/Info.plist"
 
       - name: Export and upload to TestFlight
+        if: ${{ !inputs.unsigned }}
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
