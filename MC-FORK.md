@@ -19,3 +19,11 @@ Push: Sygnal on missionserver (127.0.0.1:5000, shared with Rocket Android, MIS-8
 `com.wearemissioncontrol.chat.ios.prod` (TestFlight, production APNs) and `.ios.dev` (debug, sandbox).
 
 Rebase: `git fetch upstream --tags && git rebase release/<new>` and resolve the files above.
+
+## Signing (29 Oct 2026)
+Element's entitlements asked for things only Element's Apple team can have, and Xcode surfaced Apple's
+refusal as "Authentication failed". Removed for Mission Control's team (PQ873CNW8A):
+- NSE `com.apple.developer.usernotifications.filtering` (restricted; needs Apple's approval per team).
+  Effect: the NSE can't silently drop a notification, so the odd one (e.g. a redaction) still shows.
+- App `group.im.vector` (Element Classic's app group) and its classic keychain group. Classic-account import is unused here.
+- App associated domains (element.io / matrix.to app links).
