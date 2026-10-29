@@ -38,7 +38,8 @@ jobs:
       - name: Select Xcode 27
         run: |
           ls -d /Applications/Xcode*.app
-          XC=$(ls -d /Applications/Xcode_27*.app | sort -V | tail -1)
+          # Release builds only: skip Release_Candidate / beta copies (build 1-2 picked the 27.2 RC by sort order).
+          XC=$(ls -d /Applications/Xcode_27*.app | grep -viE 'candidate|beta|_rc' | sort -V | tail -1)
           sudo xcode-select -s "$XC"
           xcodebuild -version
 
