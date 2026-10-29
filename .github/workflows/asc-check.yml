@@ -1,0 +1,30 @@
+# Quick App Store Connect key check on Linux (seconds, no Mac minutes). Prints shapes and Apple's answer, never values.
+name: ASC key check
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          pip install -q pyjwt cryptography requests
+          python3 - <<'PY'
+          import os,re,time,jwt,requests
+          k=os.environ['ASC_KEY_ID']; i=os.environ['ASC_ISSUER_ID']; p=os.environ['ASC_KEY_P8']
+          print('key id: len',len(k),'| alnum10',bool(re.fullmatch(r'[A-Z0-9]{10}',k.strip())),'| has whitespace',k!=k.strip())
+          print('issuer: uuid',bool(re.fullmatch(r'[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}',i.strip())),'| has whitespace',i!=i.strip())
+          print('p8: BEGIN',('BEGIN PRIVATE KEY' in p),'| END',('END PRIVATE KEY' in p),'| lines',len(p.strip().splitlines()),'| chars',len(p))
+          try:
+              t=jwt.encode({'iss':i.strip(),'iat':int(time.time()),'exp':int(time.time())+600,'aud':'appstoreconnect-v1'},p.strip()+'\n',algorithm='ES256',headers={'kid':k.strip()})
+          except Exception as e:
+              print('p8 does not parse as an EC private key:',type(e).__name__); raise SystemExit(1)
+          r=requests.get('https://api.appstoreconnect.apple.com/v1/apps',params={'filter[bundleId]':'com.wearemissioncontrol.chat'},headers={'Authorization':'Bearer '+t},timeout=30)
+          print('ASC API:',r.status_code)
+          if r.ok: print('apps for bundle id:',[a['attributes']['name'] for a in r.json()['data']])
+          else: print([ (e.get('code'),e.get('title')) for e in r.json().get('errors',[])])
+          PY
