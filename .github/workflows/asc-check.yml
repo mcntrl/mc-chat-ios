@@ -27,4 +27,11 @@ jobs:
           print('ASC API:',r.status_code)
           if r.ok: print('apps for bundle id:',[a['attributes']['name'] for a in r.json()['data']])
           else: print([ (e.get('code'),e.get('title')) for e in r.json().get('errors',[])])
+          for path,q in [('bundleIds',{'filter[identifier]':'com.wearemissioncontrol.chat,com.wearemissioncontrol.chat.nse,com.wearemissioncontrol.chat.shareextension'}),('certificates',{'limit':50}),('profiles',{'limit':50}),('users',{'limit':5}),('apps',{'filter[bundleId]':'com.wearemissioncontrol.rocket'})]:
+              r=requests.get('https://api.appstoreconnect.apple.com/v1/'+path,params=q,headers={'Authorization':'Bearer '+t},timeout=30)
+              if r.ok:
+                  d=r.json()['data']; a=[x['attributes'] for x in d]
+                  info={'bundleIds':lambda:[x.get('identifier') for x in a],'certificates':lambda:sorted({x.get('certificateType') for x in a}),'profiles':lambda:len(a),'users':lambda:'readable (Admin)','apps':lambda:[x.get('name') for x in a]}[path]()
+                  print(path,'200',info)
+              else: print(path,r.status_code,[e.get('title') for e in r.json().get('errors',[])])
           PY
