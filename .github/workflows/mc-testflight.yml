@@ -39,7 +39,10 @@ jobs:
         run: |
           ls -d /Applications/Xcode*.app
           # Release builds only: skip Release_Candidate / beta copies (build 1-2 picked the 27.2 RC by sort order).
-          XC=$(ls -d /Applications/Xcode_27*.app | grep -viE 'candidate|beta|_rc' | sort -V | tail -1)
+          # Xcode_27.2.app is only a symlink to the 27.2 RC on this image, so filter on the resolved path.
+          XC=$(for x in /Applications/Xcode_27*.app; do r=$(cd "$x" && pwd -P); echo "$r"; done | grep -viE 'candidate|beta|_rc' | sort -uV | tail -1)
+          echo "Using $XC"
+          case "$XC" in *andidate*|*eta*|"") echo "No release Xcode 27 found"; exit 1;; esac
           sudo xcode-select -s "$XC"
           xcodebuild -version
 
