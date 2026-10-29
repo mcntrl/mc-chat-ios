@@ -1,0 +1,105 @@
+# Mission Control Chat (MIS-103): white-labelled Element X iOS, built and sent to TestFlight.
+# Runs on demand only (macOS minutes are scarce). The upstream Element workflows are removed in this fork.
+# Signing is fully automatic: the App Store Connect API key (Admin) lets xcodebuild register the bundle IDs,
+# the app group and the push capability, and create the distribution certificate and profiles itself.
+# Nothing secret is printed.
+name: TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload to TestFlight (off = archive and export only)
+        type: boolean
+        default: true
+
+concurrency:
+  group: testflight-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    # Element X needs Xcode 27 (iOS 27 SDK). GitHub's hosted xcode-27 image has it; macos-26 stops at 26.6.
+    runs-on: xcode-27
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+          persist-credentials: false
+
+      - name: Select Xcode 27
+        run: |
+          ls -d /Applications/Xcode*.app
+          XC=$(ls -d /Applications/Xcode_27*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+
+      - name: Generate the Xcode project (XcodeGen)
+        run: |
+          brew install xcodegen
+          xcodegen
+
+      - name: Archive
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          KEY="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$KEY"
+          trap 'rm -f "$KEY"' EXIT
+          AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+          xcodebuild archive -project ElementX.xcodeproj -scheme ElementX -configuration Release \
+            -destination generic/platform=iOS -archivePath build/MCChat.xcarchive "${AUTH[@]}" \
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" > archive.log 2>&1 \
+            || { grep -E "error:|warning: .*(sign|profile|certificate|entitlement)" archive.log | sort -u | head -80; tail -40 archive.log; exit 1; }
+          tail -3 archive.log
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' -c 'Print :CFBundleDisplayName' -c 'Print :CFBundleShortVersionString' -c 'Print :CFBundleVersion' \
+            "build/MCChat.xcarchive/Products/Applications/$(ls build/MCChat.xcarchive/Products/Applications)/Info.plist"
+
+      - name: Export and upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          DESTINATION: ${{ inputs.upload && 'upload' || 'export' }}
+        run: |
+          KEY="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$KEY"
+          trap 'rm -f "$KEY"' EXIT
+          AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+          cat > ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>$DESTINATION</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>uploadSymbols</key><true/>
+            <key>testFlightInternalTestingOnly</key><false/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath build/MCChat.xcarchive -exportPath build/export \
+            -exportOptionsPlist ExportOptions.plist "${AUTH[@]}" > export.log 2>&1 \
+            || { grep -iE "error|failed" export.log | sort -u | head -40; tail -30 export.log; exit 1; }
+          tail -5 export.log
+          ls -la build/export
+
+      - name: Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs
+          path: |
+            archive.log
+            export.log
+          if-no-files-found: ignore
+          retention-days: 14

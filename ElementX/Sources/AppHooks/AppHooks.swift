@@ -12,10 +12,10 @@ import Synchronization
 
 final nonisolated class AppHooks: AppHooksProtocol {
     #if IS_MAIN_APP
-    @AppHook(default: DefaultAppSettingsHook())
+    @AppHook(default: MissionControlAppSettingsHook())
     var appSettingsHook: AppSettingsHookProtocol
     
-    @AppHook(default: DefaultCompoundHook())
+    @AppHook(default: MissionControlCompoundHook())
     var compoundHook: CompoundHookProtocol
     
     @AppHook(default: DefaultBugReportHook())
