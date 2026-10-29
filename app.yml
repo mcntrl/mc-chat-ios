@@ -4,7 +4,7 @@ settings:
   APP_GROUP_IDENTIFIER: group.com.wearemissioncontrol.chat
   BASE_BUNDLE_IDENTIFIER: com.wearemissioncontrol.chat
   ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: "colors/accent-color"
-  DEVELOPMENT_TEAM: MCTEAMID00 # MIS-103: CI passes the real team id (vars.APPLE_TEAM_ID)
+  DEVELOPMENT_TEAM: PQ873CNW8A # Mission Control (same team as Rocket)
   IS_NIGHTLY_BUILD: false
 
   # Optional configuration to load accounts from Element Classic.
