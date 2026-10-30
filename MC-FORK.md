@@ -13,6 +13,7 @@ Everything MC-specific is kept small so rebases stay easy:
 | Icon | `ElementX/Resources/AppIcon.icon/Assets/AppIcon.png` (from `mark-orange-on-ink.svg`) |
 | Element's Sentry/PostHog/rageshake/MapTiler keys removed | `Components/Secrets/Secrets.swift` |
 | Element-only entitlements removed (associated domains, Element Classic groups, notification filtering) | `ElementX/SupportingFiles/target.yml`, `NSE/SupportingFiles/target.yml` |
+| **No encryption UI** (MC-NOE2EE, 30 Oct 2026): one flag `MissionControl.encryptionUI = false` gates onboarding verification ("Confirm it's you"), incoming verification requests, Home security banners, Settings → Encryption row, sign-out recovery warnings, member "Verify user"/withdraw, room-details violation badge; `forceDisableE2EE` default true so new rooms/DMs are unencrypted. `grep -rn MC-NOE2EE` lists every touch point (10 one-line guards) | `MissionControlHooks.swift` + guarded call sites |
 | CI: archive and TestFlight upload | `.github/workflows/mc-testflight.yml` (upstream workflows removed) |
 
 Push: Sygnal on missionserver (127.0.0.1:5000, shared with Rocket Android, MIS-87). App IDs

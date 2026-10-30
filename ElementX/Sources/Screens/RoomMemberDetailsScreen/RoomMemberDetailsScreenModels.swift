@@ -31,11 +31,11 @@ struct RoomMemberDetailsScreenViewState: BindableState {
     }
     
     var showVerifyIdentitySection: Bool {
-        verificationState == .notVerified && !isOwnMemberDetails
+        MissionControl.encryptionUI && verificationState == .notVerified && !isOwnMemberDetails // MC-NOE2EE
     }
     
     var showWithdrawVerificationSection: Bool {
-        verificationState == .verificationViolation && !isOwnMemberDetails
+        MissionControl.encryptionUI && verificationState == .verificationViolation && !isOwnMemberDetails // MC-NOE2EE
     }
 }
 

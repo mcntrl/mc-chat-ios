@@ -124,6 +124,7 @@ class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
     // MARK: - Private
     
     private var requiresVerification: Bool {
+        guard MissionControl.encryptionUI else { return false } // MC-NOE2EE: no "Confirm it's you"
         // We want to make sure onboarding finishes but also every time the user becomes unverified (e.g. account reset)
         !userSettings.account.hasRunIdentityConfirmationOnboarding || userSession.sessionSecurityStatePublisher.value.verificationState == .unverified
     }

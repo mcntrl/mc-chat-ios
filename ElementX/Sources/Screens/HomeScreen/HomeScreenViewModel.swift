@@ -64,6 +64,7 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
             .receive(on: DispatchQueue.main)
             .sink { [weak self] securityState in
                 guard let self else { return }
+                guard MissionControl.encryptionUI else { state.securityBannerMode = .none; return } // MC-NOE2EE
                 
                 switch securityState.recoveryState {
                 case .disabled:

@@ -287,7 +287,7 @@ class UserSessionFlowCoordinator: FlowCoordinatorProtocol {
                 guard let self else { return }
                 
                 attemptStartingOnboarding()
-                setupSessionVerificationRequestsObserver()
+                if MissionControl.encryptionUI { setupSessionVerificationRequestsObserver() } // MC-NOE2EE
             }
             .store(in: &cancellables)
         
@@ -629,6 +629,16 @@ class UserSessionFlowCoordinator: FlowCoordinatorProtocol {
     // MARK: - Logout
     
     private func runLogoutFlow() async {
+        // MC-NOE2EE: no recovery / key-backup warnings on sign-out, just a plain confirmation.
+        guard MissionControl.encryptionUI else {
+            navigationRootCoordinator.alertInfo = .init(id: .init(),
+                                                        title: L10n.screenSignoutConfirmationDialogTitle,
+                                                        message: L10n.screenSignoutConfirmationDialogContent,
+                                                        primaryButton: .init(title: L10n.screenSignoutConfirmationDialogSubmit, role: .destructive) { [weak self] in
+                                                            self?.actionsSubject.send(.logout)
+                                                        })
+            return
+        }
         let secureBackupController = userSession.clientProxy.secureBackupController
         
         guard case let .success(isLastDevice) = await userSession.clientProxy.isOnlyDeviceLeft() else {

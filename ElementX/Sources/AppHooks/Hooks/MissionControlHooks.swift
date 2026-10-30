@@ -14,6 +14,10 @@ enum MissionControl {
     /// Sygnal runs on the homeserver's own machine and only listens on loopback. The pusher URL is called by Tuwunel,
     /// never by the phone, so a loopback address is correct here (same gateway as Rocket Android, MIS-87).
     static let pushGateway: URL = "http://127.0.0.1:5000"
+    /// MC-NOE2EE (MIS-103, 30 Oct 2026): encryption is permanently off on this deployment (Tuwunel allow_encryption=false,
+    /// .well-known io.element.e2ee.default=false). When false: rooms/DMs are created unencrypted and every verification,
+    /// recovery, key-backup and cross-signing prompt is skipped or hidden. All call sites: `grep -rn MC-NOE2EE`.
+    static let encryptionUI = false
 
     static let orange = UIColor(red: 1.0, green: 0x4A / 255, blue: 0x1C / 255, alpha: 1)
     static let orangeDeep = UIColor(red: 0xD9 / 255, green: 0x3A / 255, blue: 0x10 / 255, alpha: 1)

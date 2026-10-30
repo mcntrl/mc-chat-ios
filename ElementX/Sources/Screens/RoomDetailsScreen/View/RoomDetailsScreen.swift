@@ -233,7 +233,7 @@ struct RoomDetailsScreen: View {
     
     private var peopleSection: some View {
         Section {
-            if context.viewState.hasMemberIdentityVerificationStateViolations {
+            if MissionControl.encryptionUI, context.viewState.hasMemberIdentityVerificationStateViolations { // MC-NOE2EE
                 ListRow(label: .default(title: L10n.commonPeople, icon: \.user),
                         details: .icon(CompoundIcon(\.infoSolid).foregroundStyle(.compound.iconCriticalPrimary)),
                         kind: .navigationLink {

@@ -268,7 +268,7 @@ final nonisolated class AppSettings: @unchecked Sendable {
     
     /// Whether the server forbids the use of E2EE: new rooms are created unencrypted and
     /// enabling encryption on existing rooms is not offered.
-    let forceDisableE2EE: RemotePreference<Bool> = .init(false)
+    let forceDisableE2EE: RemotePreference<Bool> = .init(true) // MC-NOE2EE: E2EE off (also compiled into NSE/ShareExtension, so no MissionControl ref)
     
     // MARK: - Analytics
     

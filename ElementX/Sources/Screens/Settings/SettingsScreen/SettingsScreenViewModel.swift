@@ -60,6 +60,11 @@ class SettingsScreenViewModel: SettingsScreenViewModelType, SettingsScreenViewMo
             .receive(on: DispatchQueue.main)
             .sink { [weak self] securityState in
                 guard let self else { return }
+                guard MissionControl.encryptionUI else { // MC-NOE2EE: no Encryption row or badge
+                    state.showSecuritySectionBadge = false
+                    state.securitySectionMode = .none
+                    return
+                }
                 
                 switch (securityState.verificationState, securityState.recoveryState) {
                 case (.verified, .disabled):
