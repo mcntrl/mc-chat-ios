@@ -1,0 +1,98 @@
+# Mission Control Chat (MIS-103, MC-NOE2EE): fresh-install screenshots on a simulator.
+# Signs in to the real homeserver as the rocket-qa test account and proves Sign in → room list
+# with no verification / recovery / backup prompts, then signs out (removing the CI device).
+# Password comes from the MC_QA_PASSWORD repo secret and is never printed or attached.
+name: Screenshots (no encryption prompts)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: xcode-27
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+          persist-credentials: false
+
+      - name: Select Xcode 27
+        run: |
+          XC=$(for x in /Applications/Xcode_27*.app; do r=$(cd "$x" && pwd -P); echo "$r"; done | grep -viE 'candidate|beta|_rc' | sort -uV | tail -1)
+          case "$XC" in *andidate*|*eta*|"") echo "No release Xcode 27 found"; exit 1;; esac
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+
+      - name: Generate the Xcode project (XcodeGen)
+        run: |
+          brew install xcodegen
+          xcodegen
+
+      - name: Fresh simulator
+        id: sim
+        run: |
+          RT=$(xcrun simctl list runtimes iOS -j | python3 -c "import json,sys;r=[x for x in json.load(sys.stdin)['runtimes'] if x['isAvailable']];print(r[-1]['identifier'])")
+          DT=$(xcrun simctl list devicetypes -j | python3 -c "import json,sys;d=[x['identifier'] for x in json.load(sys.stdin)['devicetypes'] if x['name'].startswith('iPhone') and 'Pro' in x['name'] and 'Max' not in x['name']];print(d[-1])")
+          UDID=$(xcrun simctl create "MC Chat QA" "$DT" "$RT")
+          echo "Simulator $UDID ($DT on $RT)"
+          xcrun simctl boot "$UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Sign in and screenshot
+        env:
+          TEST_RUNNER_MC_QA_USERNAME: rocket-qa
+          TEST_RUNNER_MC_QA_PASSWORD: ${{ secrets.MC_QA_PASSWORD }}
+        run: |
+          [ -n "$TEST_RUNNER_MC_QA_PASSWORD" ] || { echo "::error::MC_QA_PASSWORD secret missing"; exit 1; }
+          set -o pipefail
+          xcodebuild test -project ElementX.xcodeproj -scheme IntegrationTests \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -only-testing:IntegrationTests/MCNoPromptsTests \
+            -resultBundlePath build/shots.xcresult \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
+            > test.log 2>&1 || FAILED=1
+          # XCTest logs typed text; scrub the password before anything is printed or uploaded.
+          python3 -c "import os;p=os.environ['TEST_RUNNER_MC_QA_PASSWORD'];s=open('test.log',errors='replace').read();open('test.log','w').write(s.replace(p,'[REDACTED]'))"
+          [ -z "$FAILED" ] || { grep -E "error:|failed|XCTAssert|Encryption/verification|FORBIDDEN" test.log | sort -u | head -60; tail -40 test.log; FAILED=1; }
+          grep -E "Test Case .*(passed|failed|skipped)|Executed" test.log | tail -5
+          exit ${FAILED:-0}
+
+      - name: Export screenshots
+        if: always()
+        run: |
+          [ -d build/shots.xcresult ] || exit 0
+          mkdir -p shots raw
+          xcrun xcresulttool export attachments --path build/shots.xcresult --output-path raw
+          python3 - <<'EOF'
+          import json, os, shutil
+          m = json.load(open("raw/manifest.json"))
+          for test in m:
+              for a in test.get("attachments", []):
+                  name = a.get("suggestedHumanReadableName") or a["exportedFileName"]
+                  shutil.copy(os.path.join("raw", a["exportedFileName"]), os.path.join("shots", name))
+          print("\n".join(sorted(os.listdir("shots"))))
+          EOF
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: shots/
+          if-no-files-found: warn
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-log
+          path: test.log
+          if-no-files-found: ignore
