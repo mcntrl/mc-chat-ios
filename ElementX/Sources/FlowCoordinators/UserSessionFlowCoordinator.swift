@@ -636,7 +636,8 @@ class UserSessionFlowCoordinator: FlowCoordinatorProtocol {
                                                         message: L10n.screenSignoutConfirmationDialogContent,
                                                         primaryButton: .init(title: L10n.screenSignoutConfirmationDialogSubmit, role: .destructive) { [weak self] in
                                                             self?.actionsSubject.send(.logout)
-                                                        })
+                                                        },
+                                                        secondaryButton: .init(title: L10n.actionCancel, role: .cancel, action: nil))
             return
         }
         let secureBackupController = userSession.clientProxy.secureBackupController
